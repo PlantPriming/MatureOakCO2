@@ -1,0 +1,3 @@
+MatureCO2_aCO2vsCO2. txt compiles the scripts used for the comparisons per month ambient versus elevated CO2 treatments. The script contain the statistics (MannU test with the Dunn test for the posthoc test), the volcano plots representations for the P<0.01 and the heatmaps for the masses with P<0.01 and log2FC [1].
+Ven Diagrams.txt compiles the script to represent the vennDiagrams of June-September differential (P<0.01) masses among CO2 treatment.
+MatureCO2_allmonths_heatmaps.txt compiles the scripts for the supplementary figure 3 heatmaps were all the months has been represented.

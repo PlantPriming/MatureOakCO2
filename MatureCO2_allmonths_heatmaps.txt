@@ -1,0 +1,123 @@
+library(dunn.test)
+library(dplyr)
+library(tidyr)
+library(pheatmap)
+library(viridis)
+
+
+# Load your data
+data <- read.csv("data_normalised.csv")
+
+# Extract the group labels (excluding the first column which is gene names)
+metabolites <- data[[1]]     
+data_numeric <- data[, -1]  
+
+group_sizes <- c(6,5,5,4,6,5,6,5,5,5)
+
+group_labels <- c(
+  "May_aCO2", "May_eCO2", 
+  "June_aCO2", "June_eCO2",
+  "July_aCO2", "July_eCO2",
+  "August_aCO2", "August_eCO2",
+  "September_aCO2", "September_eCO2"
+)
+
+sample_groups <- rep(group_labels, times = group_sizes)
+
+# Function to compute stats per row
+compute_stats <- function(row) {
+  values <- as.numeric(row)
+  group <- factor(sample_groups[1:length(values)])
+  
+  kruskal_p <- kruskal.test(values ~ group)$p.value
+  
+  # Only run Dunn test if Kruskal p < 0.05 (optional, saves time)
+  dunn_p_min <- NA
+  if (kruskal_p < 0.05) {
+    dunn_result <- dunn.test(values, group, method = "bonferroni", kw = FALSE)
+    dunn_p_min <- min(dunn_result$P.adjusted, na.rm = TRUE)
+  }
+
+return(c(kruskal_p = kruskal_p, dunn_min_p = dunn_p_min))
+
+}
+
+# Apply the test to each metabolite row
+stats_results <- t(apply(data_numeric, 1, compute_stats))
+stats_df <- data.frame(Metabolite = metabolites, stats_results)
+
+# Combine stats and data
+combined_data <- cbind(stats_df, data_numeric)
+
+# Filter for significant metabolites (p < 0.01)
+sig_combined_data <- combined_data %>% filter(kruskal_p < 0.01)
+
+# Extract intensity matrix only (remove Metabolite + p-values)
+sig_data_matrix <- sig_combined_data[, -(1:3)]
+sample_names <- colnames(sig_data_matrix)
+
+# Annotate CO2 treatment
+CO2_levels <- ifelse(grepl("Control", sample_names), "aCO2", "eCO2")
+annotation_df <- data.frame(CO2 = factor(CO2_levels, levels = c("aCO2", "eCO2")))
+rownames(annotation_df) <- sample_names
+
+# Color scheme for annotations
+annotation_colors_rosa <- list(
+  CO2 = c("aCO2" = "#1874cd",  # blue
+          "eCO2" = "#ffa500")  # orange
+)
+
+# Heatmap settings
+my_breaks <- seq(-3, 3, length.out = 101)
+
+# Plot heatmap
+pheatmap(sig_data_matrix, 
+         main = "Heatmap of Significant Metabolites",
+         fontsize_row = 8,
+         fontsize_col = 0.000001,  # effectively hides column text
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa)
+
+#To remove May and plot ambient vs elevated
+sig_data_matrix_filtered <- sig_data_matrix[, !grepl("^May", colnames(sig_data_matrix))]
+# Reorder: aCO2 first, then eCO2
+aCO2_cols <- grep("Control", colnames(sig_data_matrix_filtered), value = TRUE)
+eCO2_cols <- grep("CO2", colnames(sig_data_matrix_filtered), value = TRUE)
+
+ordered_cols <- c(aCO2_cols, eCO2_cols)
+sig_data_matrix_ordered <- sig_data_matrix_filtered[, ordered_cols]
+co2_levels <- ifelse(grepl("Control", ordered_cols), "aCO2", "eCO2")
+annotation_df <- data.frame(CO2 = factor(co2_levels, levels = c("aCO2", "eCO2")))
+rownames(annotation_df) <- ordered_cols
+
+# Color scheme for annotations
+annotation_colors_rosa <- list(
+  CO2 = c("aCO2" = "#1874cd",  # blue
+          "eCO2" = "#ffa500")  # orange
+)
+
+# Heatmap settings
+my_breaks <- seq(-3, 3, length.out = 101)
+
+pheatmap(sig_data_matrix_ordered, 
+         main = "Heatmap of Significant Metabolites without May",
+         fontsize_row = 8,
+         fontsize_col = 8,
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa)

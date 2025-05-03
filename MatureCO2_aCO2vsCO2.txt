@@ -1,0 +1,473 @@
+library(EnhancedVolcano)
+library(dplyr)
+library(tidyr)
+library(pheatmap)
+library(viridis)
+
+# Load your data
+data <- read.csv("may.csv")
+
+# Extract the group labels (excluding the first column which is gene names)
+group_labels <- colnames(data)[-1]
+
+gathercols=c('MayControl', 'MayControl.1','MayControl.2','MayControl.3','MayControl.4','MayControl.5','MayCO2','MayCO2.1','MayCO2.2','MayCO2.3','MayCO2.4')
+
+
+# Find indices of columns by group
+aCO2_cols <-c('MayControl', 'MayControl.1','MayControl.2','MayControl.3','MayControl.4','MayControl.5')
+eCO2_cols <-c('MayCO2','MayCO2.1','MayCO2.2','MayCO2.3','MayCO2.4','MayCO2.5')
+
+# Function to compute stats per row
+compute_stats <- function(row) {
+  aCO2 <- as.numeric(row[aCO2_cols])
+  eCO2 <- as.numeric(row[eCO2_cols])
+  
+  # Mann-Whitney U test (Wilcoxon rank-sum test)
+  pval <- wilcox.test(aCO2, eCO2, exact = FALSE)$p.value
+  
+  
+  # Means
+  aCO2average <- mean(aCO2, na.rm = TRUE)
+  eCO2average <- mean(eCO2, na.rm = TRUE)
+  
+  # Log2 Fold Change (add pseudocount to avoid log(0))
+  log2fc <- log2(abs((eCO2average) / (aCO2average)))
+  
+  return(c(mean_aCO2 = aCO2average, mean_eCO2 = eCO2average, log2FC = log2fc, p_value = pval))
+}
+
+# Apply the function to all rows
+results <- t(apply(data, 1, compute_stats))
+
+# Combine with original data
+final_data <- cbind(data, results)
+
+# Write to CSV
+write.csv(final_data, "may_stats.csv", row.names = FALSE)
+
+
+#replace the file path with your file path to the document
+maydata <- read.table("may_stats.csv", header = TRUE, sep = ",")
+
+
+#bringing in the required values in
+log10.pval.may <- -log10(maydata$p_value)
+
+log2.fc.may <- maydata$log2FC
+
+maydata$color <- with(maydata, ifelse(
+  p_value < 0.01 & log2FC > 1, "#FFFF00", # purple
+  ifelse(p_value < 0.01 & log2FC < -1.5, "#800080", "grey70") # blue / grey
+))
+
+color <- maydata$color
+
+Label <- maydata$Label
+
+#Run the next few lines as a single chunk
+plot(log2.fc.may,log10.pval.may, col = color, pch =16, xlab="log2 (fold change)", ylab="-log10 (p-value)", xlim=c(-5,5), ylim=c(0,4), sub = "may control vs elevated CO2", cex.sub = 0.75, font.sub = 2)
+abline(h = -log10(0.05), col='red',lwd = 1.5)
+abline(v = -log2(2), col='blue',lwd = 1.5)
+abline(v = log2(2), col='blue',lwd = 1.5)
+
+sigmaydata <- maydata[which(maydata$p_value < 0.02 & maydata$p_value > 0 & abs(maydata$log2FC) > 1), ]
+
+sigmaydatavals <- subset(sigmaydata, select = -c(p_value, mean_eCO2, mean_aCO2,log2FC, color, Label) )
+
+group_labels <- ifelse(grepl("Control", colnames(sigmaydatavals)), "aCO2", "eCO2")
+
+# Turn into a data.frame for annotation_col
+annotation_df <- data.frame(Group = factor(group_labels))
+rownames(annotation_df) <- colnames(sigmaydatavals)
+annotation_colors_rosa <- list(Group = c("aCO2" = "#1874cd", "eCO2" = "#ffa500"))
+my_breaks <- seq(-3, 3, length.out = 101)
+
+pheatmap(sigmaydatavals, 
+         main = "Heatmap of Significant Metabolites",
+         fontsize_row = 8,
+         fontsize_col = 0.000001,
+         #annotation_col = sigmaydatavals["Label"], 
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa
+)
+
+# Load your data
+data <- read.csv("june.csv")
+
+# Extract the group labels (excluding the first column which is gene names)
+group_labels <- colnames(data)[-1]
+
+gathercols=c('JuneControl.1','JuneControl.2','JuneControl.3','JuneControl.4','JuneControl.5','JuneCO2.1','JuneCO2.2','JuneCO2.3','JuneCO2.4')
+
+
+# Find indices of columns by group
+aCO2_cols <-c('JuneControl.1','JuneControl.2','JuneControl.3','JuneControl.4','JuneControl.5')
+eCO2_cols <-c('JuneCO2.1','JuneCO2.2','JuneCO2.3','JuneCO2.4')
+
+# Function to compute stats per row
+compute_stats <- function(row) {
+  aCO2 <- as.numeric(row[aCO2_cols])
+  eCO2 <- as.numeric(row[eCO2_cols])
+  
+  # Mann-Whitney U test (Wilcoxon rank-sum test)
+  pval <- wilcox.test(aCO2, eCO2, exact = FALSE)$p.value
+  
+  
+  # Means
+  aCO2average <- mean(aCO2, na.rm = TRUE)
+  eCO2average <- mean(eCO2, na.rm = TRUE)
+  
+  # Log2 Fold Change (add pseudocount to avoid log(0))
+  log2fc <- log2(abs((eCO2average) / (aCO2average)))
+  
+  return(c(mean_aCO2 = aCO2average, mean_eCO2 = eCO2average, log2FC = log2fc, p_value = pval))
+}
+
+# Apply the function to all rows
+results <- t(apply(data, 1, compute_stats))
+
+# Combine with original data
+final_data <- cbind(data, results)
+
+# Write to CSV
+write.csv(final_data, "june_stats.csv", row.names = FALSE)
+
+
+#replace the file path with your file path to the document
+junedata <- read.table("june_stats.csv", header = TRUE, sep = ",")
+
+
+#bringing in the required values in
+log10.pval.june <- -log10(junedata$p_value)
+log2.fc.june <- junedata$log2FC
+junedata$color <- with(junedata, ifelse(
+  p_value < 0.02 & log2FC > 1, "#FFFF00",     # purple
+  ifelse(p_value < 0.02 & log2FC < -1, "#800080", "grey70") # blue / grey
+))
+
+color <-junedata$color
+
+Label <- junedata$Label
+
+#Run the next few lines as a single chunk
+plot(log2.fc.june,log10.pval.june, col = color, pch =16, xlab="log2 (fold change)", ylab="-log10 (p-value)", xlim=c(-5,5), ylim=c(0,4), sub = "June control vs elevated CO2", cex.sub = 0.75, font.sub = 2)
+abline(h = -log10(0.05), col='red',lwd = 1.5)
+abline(v = -log2(2), col='blue',lwd = 1.5)
+abline(v = log2(2), col='blue',lwd = 1.5)
+
+sigjunedata <- junedata[which(junedata$p_value < 0.02 & junedata$p_value > 0 & abs(junedata$log2FC) > 1), ]
+
+sigjunedatavals <- subset(sigjunedata, select = -c(p_value, mean_eCO2, mean_aCO2,log2FC, color, Label) )
+
+group_labels <- ifelse(grepl("Control", colnames(sigjunedatavals)), "aCO2", "eCO2")
+
+# Turn into a data.frame for annotation_col
+annotation_df <- data.frame(Group = factor(group_labels))
+rownames(annotation_df) <- colnames(sigjunedatavals)
+annotation_colors_rosa <- list(Group = c("aCO2" = "#1874cd", "eCO2" = "#ffa500"))
+my_breaks <- seq(-3, 3, length.out = 101)
+
+pheatmap(sigjunedatavals, 
+         main = "Heatmap of Significant Metabolites",
+         fontsize_row = 8,
+         fontsize_col = 0.000001,
+         #annotation_col = sigjunedatavals["Label"], 
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa
+)
+
+
+data <- read.csv("july.csv")
+
+# Extract the group labels (excluding the first column which is gene names)
+group_labels <- colnames(data)[-1]
+
+gathercols=c('JulyControl', 'JulyControl.1','JulyControl.2','JulyControl.3','JulyControl.4','JulyControl.5','JulyCO2.1','JulyCO2.2','JulyCO2.3','JulyCO2.4')
+
+
+# Find indices of columns by group
+aCO2_cols <-c('JulyControl', 'JulyControl.1','JulyControl.2','JulyControl.3','JulyControl.4','JulyControl.5')
+eCO2_cols <-c('JulyCO2.1','JulyCO2.2','JulyCO2.3','JulyCO2.4','JulyCO2.5')
+
+# Function to compute stats per row
+compute_stats <- function(row) {
+  aCO2 <- as.numeric(row[aCO2_cols])
+  eCO2 <- as.numeric(row[eCO2_cols])
+  
+  # Mann-Whitney U test (Wilcoxon rank-sum test)
+  pval <- wilcox.test(aCO2, eCO2, exact = FALSE)$p.value
+  
+  
+  # Means
+  aCO2average <- mean(aCO2, na.rm = TRUE)
+  eCO2average <- mean(eCO2, na.rm = TRUE)
+  
+  # Log2 Fold Change (add pseudocount to avoid log(0))
+  log2fc <- log2(abs((eCO2average) / (aCO2average)))
+  
+  return(c(mean_aCO2 = aCO2average, mean_eCO2 = eCO2average, log2FC = log2fc, p_value = pval))
+}
+
+# Apply the function to all rows
+results <- t(apply(data, 1, compute_stats))
+
+# Combine with original data
+final_data <- cbind(data, results)
+
+# Write to CSV
+write.csv(final_data, "july_stats.csv", row.names = FALSE)
+
+
+#replace the file path with your file path to the document
+julydata <- read.table("july_stats.csv", header = TRUE, sep = ",")
+
+
+#bringing in the required values in
+log10.pval.july <- -log10(julydata$p_value)
+log2.fc.july <- julydata$log2FC
+julydata$color <- with(julydata, ifelse(
+  p_value < 0.02 & log2FC > 1, "#FFFF00",     # purple
+  ifelse(p_value < 0.02 & log2FC < -1, "#800080", "grey70") # blue / grey
+))
+
+color <-julydata$color
+
+Label <- julydata$Label
+
+#Run the next few lines as a single chunk
+plot(log2.fc.july,log10.pval.july, col = color, pch =16, xlab="log2 (fold change)", ylab="-log10 (p-value)", xlim=c(-5,5), ylim=c(0,4), sub = "july control vs elevated CO2", cex.sub = 0.75, font.sub = 2)
+abline(h = -log10(0.05), col='red',lwd = 1.5)
+abline(v = -log2(2), col='blue',lwd = 1.5)
+abline(v = log2(2), col='blue',lwd = 1.5)
+
+sigjulydata <- julydata[which(julydata$p_value < 0.02 & julydata$p_value > 0 & abs(julydata$log2FC) > 1), ]
+
+sigjulydatavals <- subset(sigjulydata, select = -c(p_value, mean_eCO2, mean_aCO2,log2FC, color, Label) )
+
+group_labels <- ifelse(grepl("Control", colnames(sigjulydatavals)), "aCO2", "eCO2")
+
+# Turn into a data.frame for annotation_col
+annotation_df <- data.frame(Group = factor(group_labels))
+rownames(annotation_df) <- colnames(sigjulydatavals)
+annotation_colors_rosa <- list(Group = c("aCO2" = "#1874cd", "eCO2" = "#ffa500"))
+my_breaks <- seq(-3, 3, length.out = 101)
+
+pheatmap(sigjulydatavals, 
+         main = "Heatmap of Significant Metabolites",
+         fontsize_row = 8,
+         fontsize_col = 0.000001,
+         #annotation_col = sigjulydatavals["Label"], 
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa
+)
+
+
+data <- read.csv("august.csv")
+
+# Extract the group labels (excluding the first column which is gene names)
+group_labels <- colnames(data)[-1]
+
+gathercols=c('AugControl', 'AugControl.1','AugControl.2','AugControl.3','AugControl.4','AugControl.5','AugCO2','AugCO2.1','AugCO2.2','AugCO2.3','AugCO2.4')
+
+
+# Find indices of columns by group
+aCO2_cols <-c('AugControl', 'AugControl.1','AugControl.2','AugControl.3','AugControl.4','AugControl.5')
+eCO2_cols <-c('AugCO2','AugCO2.1','AugCO2.2','AugCO2.3','AugCO2.4','AugCO2.5')
+
+# Function to compute stats per row
+compute_stats <- function(row) {
+  aCO2 <- as.numeric(row[aCO2_cols])
+  eCO2 <- as.numeric(row[eCO2_cols])
+  
+  # Mann-Whitney U test (Wilcoxon rank-sum test)
+  pval <- wilcox.test(aCO2, eCO2, exact = FALSE)$p.value
+  
+  
+  # Means
+  aCO2average <- mean(aCO2, na.rm = TRUE)
+  eCO2average <- mean(eCO2, na.rm = TRUE)
+  
+  # Log2 Fold Change (add pseudocount to avoid log(0))
+  log2fc <- log2(abs((eCO2average) / (aCO2average)))
+  
+  return(c(mean_aCO2 = aCO2average, mean_eCO2 = eCO2average, log2FC = log2fc, p_value = pval))
+}
+
+# Apply the function to all rows
+results <- t(apply(data, 1, compute_stats))
+
+# Combine with original data
+final_data <- cbind(data, results)
+
+# Write to CSV
+write.csv(final_data, "aug_stats.csv", row.names = FALSE)
+
+
+#replace the file path with your file path to the document
+augdata <- read.table("aug_stats.csv", header = TRUE, sep = ",")
+
+
+#bringing in the required values in
+log10.pval.aug <- -log10(augdata$p_value)
+log2.fc.aug <- augdata$log2FC
+augdata$color <- with(augdata, ifelse(
+  p_value < 0.02 & log2FC > 1, "#FFFF00",     # purple
+  ifelse(p_value < 0.02 & log2FC < -1, "#800080", "grey70") # blue / grey
+))
+
+color <-augdata$color
+
+Label <- augdata$Label
+
+#Run the next few lines as a single chunk
+plot(log2.fc.aug,log10.pval.aug, col = color, pch =16, xlab="log2 (fold change)", ylab="-log10 (p-value)", xlim=c(-5,5), ylim=c(0,4), sub = "aug control vs elevated CO2", cex.sub = 0.75, font.sub = 2)
+abline(h = -log10(0.05), col='red',lwd = 1.5)
+abline(v = -log2(2), col='blue',lwd = 1.5)
+abline(v = log2(2), col='blue',lwd = 1.5)
+
+#For the heatmap
+sigaugdata <- augdata[which(augdata$p_value < 0.02 & augdata$p_value > 0 & abs(augdata$log2FC) > 1), ]
+
+sigaugdatavals <- subset(sigaugdata, select = -c(p_value, mean_eCO2, mean_aCO2,log2FC, color, Label) )
+
+group_labels <- ifelse(grepl("Control", colnames(sigaugdatavals)), "aCO2", "eCO2")
+
+# Turn into a data.frame for annotation_col
+annotation_df <- data.frame(Group = factor(group_labels))
+rownames(annotation_df) <- colnames(sigaugdatavals)
+annotation_colors_rosa <- list(Group = c("aCO2" = "#1874cd", "eCO2" = "#ffa500"))
+my_breaks <- seq(-3, 3, length.out = 101)
+
+pheatmap(sigaugdatavals, 
+         main = "Heatmap of Significant Metabolites",
+         fontsize_row = 8,
+         fontsize_col = 0.000001,
+         #annotation_col = sigaugdatavals["Label"], 
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa
+)
+
+data <- read.csv("september.csv")
+
+# Extract the group labels (excluding the first column which is gene names)
+group_labels <- colnames(data)[-1]
+
+gathercols=c('SeptemberControl', 'SeptemberControl.1','SeptemberControl.2','SeptemberControl.3','SeptemberControl.4','SeptemberCO2','SeptemberCO2.1','SeptemberCO2.2','SeptemberCO2.3','SeptemberCO2.4')
+
+
+# Find indices of columns by group
+aCO2_cols <-c('SeptemberControl', 'SeptemberControl.1','SeptemberControl.2','SeptemberControl.3','SeptemberControl.4')
+eCO2_cols <-c('SeptemberCO2','SeptemberCO2.1','SeptemberCO2.2','SeptemberCO2.3','SeptemberCO2.4')
+
+# Function to compute stats per row
+compute_stats <- function(row) {
+  aCO2 <- as.numeric(row[aCO2_cols])
+  eCO2 <- as.numeric(row[eCO2_cols])
+  
+  # Mann-Whitney U test (Wilcoxon rank-sum test)
+  pval <- wilcox.test(aCO2, eCO2, exact = FALSE)$p.value
+  
+  
+  # Means
+  aCO2average <- mean(aCO2, na.rm = TRUE)
+  eCO2average <- mean(eCO2, na.rm = TRUE)
+  
+  # Log2 Fold Change (add pseudocount to avoid log(0))
+  log2fc <- log2(abs((eCO2average) / (aCO2average)))
+  
+  return(c(mean_aCO2 = aCO2average, mean_eCO2 = eCO2average, log2FC = log2fc, p_value = pval))
+}
+
+# Apply the function to all rows
+results <- t(apply(data, 1, compute_stats))
+
+# Combine with original data
+final_data <- cbind(data, results)
+
+# Write to CSV
+write.csv(final_data, "september_stats.csv", row.names = FALSE)
+
+
+#replace the file path with your file path to the document
+septemberdata <- read.table("september_stats.csv", header = TRUE, sep = ",")
+
+
+#bringing in the required values in
+log10.pval.september <- -log10(septemberdata$p_value)
+log2.fc.september <- septemberdata$log2FC
+septemberdata$color <- with(septemberdata, ifelse(
+  p_value < 0.02 & log2FC > 1, "#FFFF00",     # purple
+  ifelse(p_value < 0.02 & log2FC < -1, "#800080", "grey70") # blue / grey
+))
+
+color <-septemberdata$color
+
+Label <- septemberdata$Label
+
+#Run the next few lines as a single chunk
+plot(log2.fc.september,log10.pval.september, col = color, pch =16, xlab="log2 (fold change)", ylab="-log10 (p-value)", xlim=c(-5,5), ylim=c(0,4), sub = "september control vs elevated CO2", cex.sub = 0.75, font.sub = 2)
+abline(h = -log10(0.05), col='red',lwd = 1.5)
+abline(v = -log2(2), col='blue',lwd = 1.5)
+abline(v = log2(2), col='blue',lwd = 1.5)
+
+#For the heatmap
+sigseptemberdata <- septemberdata[which(septemberdata$p_value < 0.02 & septemberdata$p_value > 0 & abs(septemberdata$log2FC) > 1), ]
+
+sigseptemberdatavals <- subset(sigseptemberdata, select = -c(p_value, mean_eCO2, mean_aCO2,log2FC, color, Label) )
+
+group_labels <- ifelse(grepl("Control", colnames(sigseptemberdatavals)), "aCO2", "eCO2")
+
+# Turn into a data.frame for annotation_col
+annotation_df <- data.frame(Group = factor(group_labels))
+rownames(annotation_df) <- colnames(sigseptemberdatavals)
+annotation_colors_rosa <- list(Group = c("aCO2" = "#1874cd", "eCO2" = "#ffa500"))
+my_breaks <- seq(-3, 3, length.out = 101)
+
+pheatmap(sigseptemberdatavals, 
+         main = "Heatmap of Significant Metabolites",
+         fontsize_row = 8,
+         fontsize_col = 0.000001,
+         #annotation_col = sigseptemberdatavals["Label"], 
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,
+         clustering_distance_rows = "euclidean",
+         scale = "row", 
+         color = viridis(100, option = "viridis"),
+         breaks = my_breaks,
+         treeheight_row = 30,
+         border_color = NA,
+         annotation_col = annotation_df,
+         annotation_colors = annotation_colors_rosa
+)

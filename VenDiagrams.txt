@@ -1,0 +1,36 @@
+library(VennDiagram)
+library(viridis)
+
+
+# Load your data
+data <- read.csv("venn_month_2.csv")
+
+sets <- list(
+  June = na.omit(data$June),
+  July = na.omit(data$July),
+  August = na.omit(data$August),
+  September = na.omit(data$September)
+)
+
+# Generate Venn diagram
+
+venn.plot <- venn.diagram(
+  x = sets,
+  filename = "venn5.png",
+  output = TRUE,
+  imagetype = "png",
+  height = 2000,
+  width = 2000,
+  resolution = 300,
+  fill = c("#fc8961", "#b73779", "#7e03a8", "#57106e"),
+  alpha = 0.6,
+  cex = 1.5,
+  cat.cex = 1.5,
+  cat.col = "black",
+  cat.pos = c(-15, 10, 30, 50),   # Adjust label positions
+  cat.dist = c(0.2, 0.2, 0.12, 0.13),  # Increase distance from center
+  margin = 0.1
+)
+
+# Open the image in default viewer
+browseURL("venn5.png")
